@@ -17,7 +17,17 @@ namespace ModbusRTU
         public List<ushort> Data = new List<ushort>();
         public ushort CRC16 = 0xFFFF;
 
-        public void MsgClear()
+        public void Clear()
+        {
+            FuncCode = 0;
+            StartReg = 0;
+            RegCount = 0;
+            RegByteCount = 2;
+            Data.Clear();
+            CRC16 = 0xFFFF;
+        }
+
+        public void ClearAll()
         {
             SlaveAddr = 0;
             FuncCode = 0;
@@ -31,107 +41,86 @@ namespace ModbusRTU
 
     public class ModbusRTUMaster
     {
-        byte slaveaddr;
-        byte funccode;
-        ushort startreg;
-        ushort regcount;
-        byte databytes = 2;
-        List<byte> payload;
-        ushort crc16;
-
-        public List<byte> Msg;
-
+        // Fields
+        public List<byte> RawMsg = new List<byte>();
+        ModbusRTUMsg Message = new ModbusRTUMsg();
+        
         // Class Constructors
-        public ModbusRTUMaster()
+        public ModbusRTUMaster() { }
+
+        public ModbusRTUMaster(byte p_SlaveAddr, byte p_FuncCode, ushort p_StartReg)
         {
-            slaveaddr = funccode = databytes;
-            startreg = regcount = crc16 = 0;
-            payload = new List<byte>();
+            Message.SlaveAddr = p_SlaveAddr;
+            Message.FuncCode = p_FuncCode;
+            Message.StartReg = p_StartReg;
         }
 
-        public ModbusRTUMaster(byte p_ToAddr, byte p_FuncCode, ushort p_StartReg)
+        public ModbusRTUMaster(byte p_SlaveAddr, byte p_FuncCode, ushort p_StartReg, ushort p_RegCount, List<ushort> p_Payload)
         {
-            slaveaddr = p_ToAddr;
-            funccode = p_FuncCode;
-            startreg = p_StartReg;
+            Message.SlaveAddr = p_SlaveAddr;
+            Message.FuncCode = p_FuncCode;
+            Message.StartReg = p_StartReg;
+            Message.RegCount = p_RegCount;
+            Message.Data = p_Payload.ToList();
         }
-
-
-        public ModbusRTUMaster(byte p_SlaveAddr, byte p_FuncCode, ushort p_StartReg, ushort p_RegCount, List<byte> p_Payload)
-        {
-            slaveaddr = p_SlaveAddr;
-            funccode = p_FuncCode;
-            startreg = p_StartReg;
-            regcount = p_RegCount;
-            payload = p_Payload.ToList();
-        }
-
 
         // Property Initializers
-        public byte SlaveAddr   { get => slaveaddr; set => slaveaddr = value; }
-        public byte FuncCode    { get => funccode; set => funccode = value; }
-        public ushort StartReg  { get => startreg; set => startreg = value; }
-        public ushort RegCount  { get => regcount; set => regcount = value; }
-        public ushort DataBytes => databytes;
-        public ushort CRC16     => crc16;
-        public ushort MsgSize   => (ushort)Msg.Count();
+        public byte SlaveAddr { get => Message.SlaveAddr; set => Message.SlaveAddr = value; }
+        public byte FuncCode    { get => Message.FuncCode; set => Message.FuncCode = value; }
+        public ushort StartReg  { get => Message.StartReg; set => Message.StartReg = value; }
+        public ushort RegCount  { get => Message.RegCount; set => Message.RegCount = value; }
+        public ushort RegByteCount => Message.RegByteCount;
+        public ushort CRC16     => Message.CRC16;
+        public ushort MsgSize   => (ushort)Message.Data.Count();
 
-        public void ClearData()
+        // Public Class Methods
+        public void ClearData() { Message.Clear(); }
+
+        public void ClearAll() { Message.ClearAll(); }
+
+        public ModbusRTUMsg CreateMessage(byte p_SlaveAddr, byte p_FuncCode, ushort p_StartReg, ushort p_RegCount, List<byte> p_Payload)
         {
-            funccode = 0;
-            startreg = 0;
-            regcount = 0;
-            databytes = 0;
-            payload.Clear();
-            crc16 = 0;
+            ModbusRTUMsg TmpMsg = new ModbusRTUMsg();
+
+            TmpMsg.SlaveAddr = p_SlaveAddr;
+            TmpMsg.FuncCode = p_FuncCode;
+            TmpMsg.StartReg = p_StartReg;
+            TmpMsg.RegCount = p_RegCount;
+
+            for (int i = 0; i < p_Payload.Count(); i += 2)
+                TmpMsg.Data.Add((ushort)((p_Payload[i] << 8) | p_Payload[i]));
+
+            return TmpMsg;
         }
 
-        public void ClearAll()
+        public List<byte> CreateRawMessageBuffer(List<byte> p_Payload)
         {
-            slaveaddr = 0;
-            ClearData();
-        }
+            RawMsg.Add(Message.SlaveAddr);                         // Add slave address to overall message
+            RawMsg.Add(Message.FuncCode);                          // Add function code to overall message
+            RawMsg.Add((byte)(Message.StartReg >> 8));             // Add starting register upper byte
+            RawMsg.Add((byte)(Message.StartReg & 0x00FF));         // Add starting register lower byte
 
-        public List<byte> CreateMessage(byte p_SlaveAddr, byte p_FuncCode, ushort p_StartReg, ushort p_RegCount, List<byte> p_Payload)
-        {
-            slaveaddr = p_SlaveAddr;
-            funccode = p_FuncCode;
-            startreg = p_StartReg;
-            regcount = p_RegCount;
-
-            return CreateMessage(p_Payload);
-        }
-
-        public List<byte> CreateMessage(List<byte> p_Payload)
-        {
-            Msg = new List<byte>();
-
-            Msg.Add(slaveaddr);                         // Add slave address to overall message
-            Msg.Add(funccode);                          // Add function code to overall message
-            Msg.Add((byte)(startreg >> 8));             // Add starting register upper byte
-            Msg.Add((byte)(startreg & 0x00FF));         // Add starting register lower byte
-
-            if (funccode != 0x08)
+            if (Message.FuncCode != 0x08)
             {
-                Msg.Add((byte)(regcount >> 8));             // Add register count upper byte
-                Msg.Add((byte)(regcount & 0x00FF));         // Add register count lower byte
+                RawMsg.Add((byte)(Message.RegCount >> 8));             // Add register count upper byte
+                RawMsg.Add((byte)(Message.RegCount & 0x00FF));         // Add register count lower byte
             }
 
-            if(funccode == 0x10)
-                Msg.Add(GetNumDataBytes(p_Payload));    // Add number of data bytes in the data payload
+            if(Message.FuncCode == 0x10)
+                RawMsg.Add(GetNumDataBytes(p_Payload));    // Add number of data bytes in the data payload
 
             // Add data payload to overall message - skip for read register requests
-            if ((funccode == 0x08) || (funccode == 0x10))
+            if ((Message.FuncCode == 0x08) || (Message.FuncCode == 0x10))
                 for (int i = 0; i < p_Payload.Count; i++)
-                    Msg.Add(p_Payload[i]);
+                    RawMsg.Add(p_Payload[i]);
 
-            crc16 = CalcModbusRTUCRC16(Msg);            // Calculate the Modbus RTU CRC-16 value
+            Message.CRC16 = CalcModbusRTUCRC16(RawMsg);            // Calculate the Modbus RTU CRC-16 value
 
             // Modbus RTU CRC16 is Big-Endian format So lower byte is added first
-            Msg.Add((byte)(crc16 & 0x00FF));
-            Msg.Add((byte)(crc16 >> 8));
+            RawMsg.Add((byte)(Message.CRC16 & 0x00FF));
+            RawMsg.Add((byte)(Message.CRC16 >> 8));
 
-            return Msg;
+            return RawMsg;
         }
 
         public byte ExtractMessage(List<byte> p_FullMsg)
@@ -179,7 +168,6 @@ namespace ModbusRTU
 
             return 1;
         }
-
 
         // Private Helper Functions
         private byte GetNumDataBytes(List<byte> p_Payload)

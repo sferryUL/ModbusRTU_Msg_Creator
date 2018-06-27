@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.lblDataBuffer = new System.Windows.Forms.Label();
             this.txtDataBuffer = new System.Windows.Forms.TextBox();
             this.txtModCRC16Result = new System.Windows.Forms.TextBox();
@@ -52,6 +53,9 @@
             this.lblRegSize = new System.Windows.Forms.Label();
             this.txtStartReg = new System.Windows.Forms.TextBox();
             this.lblStartReg = new System.Windows.Forms.Label();
+            this.btnTransmit = new System.Windows.Forms.Button();
+            this.spVFD = new System.IO.Ports.SerialPort(this.components);
+            this.tmrResponse = new System.Windows.Forms.Timer(this.components);
             this.SuspendLayout();
             // 
             // lblDataBuffer
@@ -282,6 +286,20 @@
             this.lblStartReg.Text = "Starting Register (hex):";
             this.lblStartReg.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
+            // btnTransmit
+            // 
+            this.btnTransmit.Location = new System.Drawing.Point(192, 300);
+            this.btnTransmit.Name = "btnTransmit";
+            this.btnTransmit.Size = new System.Drawing.Size(141, 23);
+            this.btnTransmit.TabIndex = 23;
+            this.btnTransmit.Text = "Transmit Message";
+            this.btnTransmit.UseVisualStyleBackColor = true;
+            this.btnTransmit.Click += new System.EventHandler(this.btnTransmit_Click);
+            // 
+            // spVFD
+            // 
+            this.spVFD.PortName = "COM6";
+            // 
             // frmMain
             // 
             this.AcceptButton = this.btnCalcModCRC16;
@@ -289,6 +307,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.btnClear;
             this.ClientSize = new System.Drawing.Size(561, 336);
+            this.Controls.Add(this.btnTransmit);
             this.Controls.Add(this.txtStartReg);
             this.Controls.Add(this.lblStartReg);
             this.Controls.Add(this.txtRegSize);
@@ -348,6 +367,9 @@
         private System.Windows.Forms.Label lblRegSize;
         private System.Windows.Forms.TextBox txtStartReg;
         private System.Windows.Forms.Label lblStartReg;
+        private System.Windows.Forms.Button btnTransmit;
+        private System.IO.Ports.SerialPort spVFD;
+        private System.Windows.Forms.Timer tmrResponse;
     }
 }
 
